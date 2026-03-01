@@ -1,0 +1,1233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hourly Day Tracker</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    :root{
+      --bg:#0b1220; --muted:#96a2c5; --text:#e7ecff; --border:rgba(255,255,255,.10);
+      --accent:#7aa2ff; --danger:#ff6b6b; --ok:#5de1a5;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(122,162,255,.20), transparent 55%),
+        radial-gradient(900px 500px at 90% 10%, rgba(93,225,165,.15), transparent 50%),
+        var(--bg);
+      color:var(--text);
+    }
+    header{
+      position:sticky; top:0; z-index:10;
+      backdrop-filter: blur(10px);
+      background:rgba(11,18,32,.75);
+      border-bottom:1px solid var(--border);
+    }
+    .wrap{max-width:1180px;margin:0 auto;padding:16px}
+    .top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+    .title h1{margin:0;font-size:18px}
+    .title p{margin:2px 0 0;color:var(--muted);font-size:12px}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+    button,input[type="date"]{
+      background:rgba(255,255,255,.06); color:var(--text);
+      border:1px solid var(--border); border-radius:10px;
+      padding:8px 10px; font-size:13px; outline:none;
+    }
+    button{cursor:pointer}
+    button:hover{border-color:rgba(122,162,255,.45)}
+    button.primary{border-color:rgba(122,162,255,.55)}
+    button.danger{border-color:rgba(255,107,107,.55)}
+    button.ok{border-color:rgba(93,225,165,.55)}
+    .hint{color:var(--muted);font-size:12px;margin-top:10px}
+
+    main .wrap{padding-top:14px}
+    .summary{
+      background:rgba(18,27,47,.75);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:12px;
+      margin-bottom:12px;
+    }
+    .summaryTop{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+    .pill{
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      background:rgba(255,255,255,.04);
+      font-size:12px;
+      color:var(--muted);
+    }
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+    .bars{display:grid;gap:8px;margin-top:10px}
+    .barRow{display:grid;grid-template-columns:170px 1fr 60px;gap:10px;align-items:center}
+    @media (max-width:760px){.barRow{grid-template-columns:1fr;gap:6px}}
+    .barLabel{font-size:12px;color:var(--text);opacity:.95}
+    .barTrack{
+      height:10px;border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.04);
+      overflow:hidden;
+    }
+    .barFill{height:100%;width:0%;background:rgba(122,162,255,.55)}
+    .barVal{font-size:12px;color:var(--muted);text-align:right}
+
+    .grid{display:grid;gap:10px}
+    .row{
+      background:rgba(18,27,47,.75);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      display:grid;
+      grid-template-columns:90px 1.1fr 1.3fr;
+      gap:12px;
+      align-items:start;
+    }
+    @media (max-width:820px){.row{grid-template-columns:1fr}}
+    .time{display:flex;flex-direction:column;gap:8px;padding-top:2px}
+    .time .hr{font-weight:700;font-size:14px}
+    .time .badge{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+    .dot{width:8px;height:8px;border-radius:999px;background:rgba(255,255,255,.18)}
+    .dot.filled{background:var(--accent)}
+    .nowPill{
+      border:1px solid rgba(122,162,255,.55);
+      border-radius:999px;
+      padding:4px 8px;
+      width:max-content;
+      font-size:11px;
+      color:var(--text);
+      background:rgba(122,162,255,.10);
+    }
+    .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+    .quick button{
+      padding:6px 8px;
+      border-radius:999px;
+      font-size:12px;
+      background:rgba(255,255,255,.04);
+    }
+    .tags{display:flex;flex-wrap:wrap;gap:8px}
+    .tag{
+      user-select:none;
+      display:inline-flex;align-items:center;gap:8px;
+      padding:8px 10px;border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.04);
+      cursor:pointer;font-size:13px;color:var(--text);
+      transition:transform .05s ease;
+    }
+    .tag:active{transform:scale(.98)}
+    .tag input{display:none}
+    .tag.selected{
+      border-color:rgba(122,162,255,.65);
+      background:rgba(122,162,255,.14);
+    }
+    textarea{
+      width:100%; min-height:42px; resize:vertical;
+      border-radius:12px;border:1px solid var(--border);
+      background:rgba(255,255,255,.05);
+      color:var(--text);
+      padding:10px;font-size:13px;outline:none;
+    }
+    textarea:focus{border-color:rgba(122,162,255,.55)}
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="title">
+        <h1>Hourly Day Tracker</h1>
+        <p>PWA offline app. Multi-select tags + note per hour. Auto-saves on device.</p>
+      </div>
+      <div class="toolbar">
+        <input id="datePicker" type="date" />
+        <button class="primary" id="jumpNowBtn">Jump to current hour</button>
+        <button class="ok" id="copyYesterdayBtn">Copy yesterday → today</button>
+        <button id="exportBtn">Export JSON</button>
+        <button id="importBtn">Import JSON</button>
+        <button id="csvBtn">Download CSV</button>
+        <button class="danger" id="clearBtn">Clear day</button>
+      </div>
+    </div>
+    <div class="hint" id="installHint">Install tip: Chrome menu → <b>Install app</b> / <b>Add to Home screen</b>.</div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="summary" aria-label="Summary">
+      <div class="summaryTop">
+        <div class="pill">Day: <span id="dayLabel" class="mono"></span></div>
+        <div class="pill">Filled hours: <span id="filledCount" class="mono">0</span> / 24</div>
+        <div class="pill">Last saved: <span id="lastSaved" class="mono">—</span></div>
+      </div>
+      <div class="bars" id="bars"></div>
+    </section>
+
+    <div id="grid" class="grid"></div>
+  </div>
+</main>
+
+<!-- Export/Import modal -->
+<div id="modal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);padding:18px;z-index:50;">
+  <div style="width:min(900px,100%);background:rgba(18,27,47,.95);border:1px solid var(--border);border-radius:16px;padding:14px;">
+    <h2 id="modalTitle" style="margin:0 0 8px;font-size:16px;">Export</h2>
+    <p id="modalHelp" style="margin:0 0 10px;color:var(--muted);font-size:12px;">Copy/paste this JSON somewhere safe.</p>
+    <textarea id="modalText" class="mono" style="min-height:240px;"></textarea>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:10px;">
+      <button id="modalClose">Close</button>
+      <button class="primary" id="modalPrimary">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // --------- Register Service Worker (offline) ---------
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", async () => {
+      try {
+        await navigator.serviceWorker.register("./service-worker.js", { scope: "./" });
+      } catch (e) {
+        console.warn("SW registration failed", e);
+      }
+    });
+  }
+
+  // --------- Tags ----------
+  const TAGS = [
+    "Working","Idle/Break","Home task","Kid care","Driving/Commute","Exercise",
+    "Food","Learning","Meetings/Calls","Personal admin","Entertainment","Sleep/Rest"
+  ];
+
+  // --------- Elements ----------
+  const els = {
+    grid: document.getElementById("grid"),
+    bars: document.getElementById("bars"),
+    datePicker: document.getElementById("datePicker"),
+    dayLabel: document.getElementById("dayLabel"),
+    filledCount: document.getElementById("filledCount"),
+    lastSaved: document.getElementById("lastSaved"),
+    jumpNowBtn: document.getElementById("jumpNowBtn"),
+    clearBtn: document.getElementById("clearBtn"),
+    exportBtn: document.getElementById("exportBtn"),
+    importBtn: document.getElementById("importBtn"),
+    csvBtn: document.getElementById("csvBtn"),
+    copyYesterdayBtn: document.getElementById("copyYesterdayBtn"),
+    modal: document.getElementById("modal"),
+    modalTitle: document.getElementById("modalTitle"),
+    modalHelp: document.getElementById("modalHelp"),
+    modalText: document.getElementById("modalText"),
+    modalClose: document.getElementById("modalClose"),
+    modalPrimary: document.getElementById("modalPrimary"),
+    installHint: document.getElementById("installHint")
+  };
+
+  // --------- Helpers ----------
+  const pad2 = n => String(n).padStart(2, "0");
+  const isoDay = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  const keyForDay = dayStr => `hourlyTracker:${dayStr}`;
+  const makeEmptyDay = () => Array.from({length:24}, () => ({ tags: [], note: "" }));
+
+  function loadDay(dayStr){
+    const raw = localStorage.getItem(keyForDay(dayStr));
+    if(!raw) return makeEmptyDay();
+    try{
+      const parsed = JSON.parse(raw);
+      if(!Array.isArray(parsed) || parsed.length !== 24) return makeEmptyDay();
+      return parsed.map(h => ({
+        tags: Array.isArray(h?.tags) ? h.tags.filter(t => typeof t === "string") : [],
+        note: typeof h?.note === "string" ? h.note : ""
+      }));
+    } catch { return makeEmptyDay(); }
+  }
+
+  function saveDay(dayStr, data){
+    localStorage.setItem(keyForDay(dayStr), JSON.stringify(data));
+    els.lastSaved.textContent = new Date().toLocaleString();
+  }
+
+  const hourLabel = h => `${pad2(h)}:00–${pad2((h+1)%24)}:00`;
+
+  function computeFilled(data){
+    let c = 0;
+    for(const h of data){
+      if((h.tags?.length) || (h.note?.trim().length)) c++;
+    }
+    return c;
+  }
+
+  // --------- Summary ----------
+  function computeTagCounts(data){
+    const counts = new Map(TAGS.map(t => [t, 0]));
+    for(const hour of data){
+      for(const t of (hour.tags || [])){
+        if(counts.has(t)) counts.set(t, counts.get(t) + 1);
+      }
+    }
+    return counts;
+  }
+
+  function renderSummary(dayStr, data){
+    els.dayLabel.textContent = dayStr;
+    els.filledCount.textContent = String(computeFilled(data));
+
+    const counts = computeTagCounts(data);
+    const max = Math.max(1, ...counts.values());
+    const sorted = [...counts.entries()].sort((a,b) => b[1] - a[1]);
+
+    els.bars.innerHTML = "";
+    for(const [tag, n] of sorted){
+      const row = document.createElement("div");
+      row.className = "barRow";
+
+      const label = document.createElement("div");
+      label.className = "barLabel";
+      label.textContent = tag;
+
+      const track = document.createElement("div");
+      track.className = "barTrack";
+
+      const fill = document.createElement("div");
+      fill.className = "barFill";
+      fill.style.width = `${Math.round((n / max) * 100)}%`;
+      track.appendChild(fill);
+
+      const val = document.createElement("div");
+      val.className = "barVal mono";
+      val.textContent = `${n}h`;
+
+      row.appendChild(label);
+      row.appendChild(track);
+      row.appendChild(val);
+      els.bars.appendChild(row);
+    }
+  }
+
+  // --------- Main render ----------
+  function render(dayStr, data){
+    renderSummary(dayStr, data);
+    els.grid.innerHTML = "";
+
+    const now = new Date();
+    const isToday = isoDay(now) === dayStr;
+    const currentHour = now.getHours();
+
+    for(let h=0; h<24; h++){
+      const row = document.createElement("div");
+      row.className = "row";
+      row.id = `hour-${h}`;
+
+      const time = document.createElement("div");
+      time.className = "time";
+
+      if(isToday && h === currentHour){
+        const nowPill = document.createElement("div");
+        nowPill.className = "nowPill";
+        nowPill.textContent = "NOW";
+        time.appendChild(nowPill);
+      }
+
+      const hr = document.createElement("div");
+      hr.className = "hr";
+      hr.textContent = hourLabel(h);
+
+      const badge = document.createElement("div");
+      badge.className = "badge";
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      const badgeText = document.createElement("span");
+
+      const filled = (data[h].tags.length > 0) || (data[h].note.trim().length > 0);
+      dot.classList.toggle("filled", filled);
+      badgeText.textContent = filled ? "Logged" : "Empty";
+
+      badge.appendChild(dot);
+      badge.appendChild(badgeText);
+
+      // Quick actions
+      const quick = document.createElement("div");
+      quick.className = "quick";
+
+      const prevBtn = document.createElement("button");
+      prevBtn.textContent = "Prev hour →";
+      prevBtn.disabled = (h === 0);
+      prevBtn.addEventListener("click", () => {
+        if(h === 0) return;
+        data[h] = JSON.parse(JSON.stringify(data[h-1]));
+        saveAndRerender(dayStr, data, h);
+      });
+
+      const prevTagsBtn = document.createElement("button");
+      prevTagsBtn.textContent = "Prev tags";
+      prevTagsBtn.disabled = (h === 0);
+      prevTagsBtn.addEventListener("click", () => {
+        if(h === 0) return;
+        data[h].tags = [...new Set(data[h-1].tags)];
+        saveAndRerender(dayStr, data, h);
+      });
+
+      const clearHourBtn = document.createElement("button");
+      clearHourBtn.textContent = "Clear";
+      clearHourBtn.addEventListener("click", () => {
+        data[h] = { tags: [], note: "" };
+        saveAndRerender(dayStr, data, h);
+      });
+
+      const nextBtn = document.createElement("button");
+      nextBtn.textContent = "→ Next";
+      nextBtn.disabled = (h === 23);
+      nextBtn.addEventListener("click", () => {
+        if(h === 23) return;
+        data[h+1] = JSON.parse(JSON.stringify(data[h]));
+        saveAndRerender(dayStr, data, h+1);
+        document.getElementById(`hour-${h+1}`)?.scrollIntoView({behavior:"smooth", block:"start"});
+      });
+
+      quick.appendChild(prevBtn);
+      quick.appendChild(prevTagsBtn);
+      quick.appendChild(clearHourBtn);
+      quick.appendChild(nextBtn);
+
+      time.appendChild(hr);
+      time.appendChild(badge);
+      time.appendChild(quick);
+
+      // Tags
+      const tagsWrap = document.createElement("div");
+      tagsWrap.className = "tags";
+
+      TAGS.forEach(tagName => {
+        const btn = document.createElement("label");
+        btn.className = "tag";
+
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = data[h].tags.includes(tagName);
+        btn.classList.toggle("selected", input.checked);
+
+        input.addEventListener("change", () => {
+          const set = new Set(data[h].tags);
+          if(input.checked) set.add(tagName); else set.delete(tagName);
+          data[h].tags = [...set];
+          btn.classList.toggle("selected", input.checked);
+          saveAndRefreshBadge(dayStr, data, h, dot, badgeText);
+        });
+
+        const span = document.createElement("span");
+        span.textContent = tagName;
+
+        btn.appendChild(input);
+        btn.appendChild(span);
+        tagsWrap.appendChild(btn);
+      });
+
+      // Note
+      const note = document.createElement("div");
+      const ta = document.createElement("textarea");
+      ta.placeholder = "Comment for this hour… (optional)";
+      ta.value = data[h].note;
+
+      let noteTimer = null;
+      ta.addEventListener("input", () => {
+        data[h].note = ta.value;
+        clearTimeout(noteTimer);
+        noteTimer = setTimeout(() => {
+          saveAndRefreshBadge(dayStr, data, h, dot, badgeText);
+        }, 250);
+      });
+
+      note.appendChild(ta);
+
+      row.appendChild(time);
+      row.appendChild(tagsWrap);
+      row.appendChild(note);
+      els.grid.appendChild(row);
+    }
+  }
+
+  function saveAndRefreshBadge(dayStr, data, h, dotEl, badgeTextEl){
+    const filled = (data[h].tags.length > 0) || (data[h].note.trim().length > 0);
+    dotEl.classList.toggle("filled", filled);
+    badgeTextEl.textContent = filled ? "Logged" : "Empty";
+    saveDay(dayStr, data);
+    renderSummary(dayStr, data);
+  }
+
+  function saveAndRerender(dayStr, data, focusHour){
+    saveDay(dayStr, data);
+    render(dayStr, data);
+    document.getElementById(`hour-${focusHour}`)?.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  // --------- Modal ----------
+  function openModal({title, help, text, primaryLabel, onPrimary}){
+    els.modalTitle.textContent = title;
+    els.modalHelp.textContent = help;
+    els.modalText.value = text || "";
+    els.modalPrimary.textContent = primaryLabel || "OK";
+    els.modalPrimary.onclick = onPrimary;
+    els.modal.style.display = "flex";
+    setTimeout(() => els.modalText.focus(), 0);
+  }
+  function closeModal(){
+    els.modal.style.display = "none";
+    els.modalPrimary.onclick = null;
+  }
+  els.modalClose.addEventListener("click", closeModal);
+  els.modal.addEventListener("click", (e) => { if(e.target === els.modal) closeModal(); });
+
+  // --------- Export/Import/CSV ----------
+  function downloadText(filename, text, mime="text/plain"){
+    const blob = new Blob([text], {type:mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+  const csvEscape = (v) => {
+    const s = String(v ?? "");
+    if(/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+    return s;
+  };
+  function toCSV(dayStr, data){
+    const lines = [];
+    lines.push(["day","hour","start","end","tags","note"].map(csvEscape).join(","));
+    for(let h=0; h<24; h++){
+      const start = `${pad2(h)}:00`;
+      const end = `${pad2((h+1)%24)}:00`;
+      lines.push([dayStr, String(h), start, end, data[h].tags.join(" | "), data[h].note || ""].map(csvEscape).join(","));
+    }
+    return lines.join("\n");
+  }
+
+  // --------- App state ----------
+  let currentDay = isoDay(new Date());
+  let currentData = loadDay(currentDay);
+
+  function setDay(dayStr){
+    currentDay = dayStr;
+    currentData = loadDay(currentDay);
+    render(currentDay, currentData);
+  }
+
+  // --------- Install hint (optional) ----------
+  // Some browsers hide install UI; this just keeps the tip visible.
+  // If you want a custom "Install" button later, tell me and I’ll add it.
+
+  // --------- Wire header buttons ----------
+  els.datePicker.value = currentDay;
+  els.datePicker.addEventListener("change", () => {
+    const v = els.datePicker.value;
+    if(v) setDay(v);
+  });
+
+  els.jumpNowBtn.addEventListener("click", () => {
+    const now = new Date();
+    const dayStr = isoDay(now);
+    if(currentDay !== dayStr){
+      els.datePicker.value = dayStr;
+      setDay(dayStr);
+    }
+    document.getElementById(`hour-${now.getHours()}`)?.scrollIntoView({behavior:"smooth", block:"start"});
+  });
+
+  els.clearBtn.addEventListener("click", () => {
+    if(!confirm(`Clear all entries for ${currentDay}?`)) return;
+    currentData = makeEmptyDay();
+    saveDay(currentDay, currentData);
+    render(currentDay, currentData);
+  });
+
+  els.copyYesterdayBtn.addEventListener("click", () => {
+    const d = new Date(currentDay + "T00:00:00");
+    d.setDate(d.getDate()-1);
+    const y = isoDay(d);
+    const yData = loadDay(y);
+    if(!confirm(`Copy all 24 hours from ${y} into ${currentDay}? This will overwrite today's data.`)) return;
+    currentData = JSON.parse(JSON.stringify(yData));
+    saveDay(currentDay, currentData);
+    render(currentDay, currentData);
+  });
+
+  els.exportBtn.addEventListener("click", async () => {
+    const payload = { version: 1, day: currentDay, tagsCatalog: TAGS, data: currentData };
+    const json = JSON.stringify(payload, null, 2);
+    openModal({
+      title: "Export JSON",
+      help: "Copy/paste this JSON somewhere safe (backup).",
+      text: json,
+      primaryLabel: "Copy to clipboard",
+      onPrimary: async () => {
+        try { await navigator.clipboard.writeText(json); alert("Copied!"); }
+        catch { alert("Copy failed. You can still manually copy from the box."); }
+      }
+    });
+  });
+
+  els.importBtn.addEventListener("click", () => {
+    openModal({
+      title: "Import JSON",
+      help: "Paste exported JSON. It will import into the day inside the JSON and switch to it.",
+      text: "",
+      primaryLabel: "Import",
+      onPrimary: () => {
+        const txt = els.modalText.value.trim();
+        if(!txt) return alert("Paste JSON first.");
+        try{
+          const payload = JSON.parse(txt);
+          if(!payload || payload.version !== 1 || !payload.day || !Array.isArray(payload.data) || payload.data.length !== 24){
+            return alert("Invalid JSON format.");
+          }
+          const normalized = payload.data.map(h => ({
+            tags: Array.isArray(h?.tags) ? h.tags.filter(t => typeof t === "string") : [],
+            note: typeof h?.note === "string" ? h.note : ""
+          }));
+          localStorage.setItem(keyForDay(payload.day), JSON.stringify(normalized));
+          closeModal();
+          els.datePicker.value = payload.day;
+          setDay(payload.day);
+          alert("Imported!");
+        } catch {
+          alert("Failed to parse JSON.");
+        }
+      }
+    });
+  });
+
+  els.csvBtn.addEventListener("click", () => {
+    downloadText(`hourly-tracker-${currentDay}.csv`, toCSV(currentDay, currentData), "text/csv");
+  });
+
+  // --------- Initial render ----------
+  render(currentDay, currentData);
+})();
+</script>
+</body>
+</html><!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hourly Day Tracker</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    :root{
+      --bg:#0b1220; --muted:#96a2c5; --text:#e7ecff; --border:rgba(255,255,255,.10);
+      --accent:#7aa2ff; --danger:#ff6b6b; --ok:#5de1a5;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(122,162,255,.20), transparent 55%),
+        radial-gradient(900px 500px at 90% 10%, rgba(93,225,165,.15), transparent 50%),
+        var(--bg);
+      color:var(--text);
+    }
+    header{
+      position:sticky; top:0; z-index:10;
+      backdrop-filter: blur(10px);
+      background:rgba(11,18,32,.75);
+      border-bottom:1px solid var(--border);
+    }
+    .wrap{max-width:1180px;margin:0 auto;padding:16px}
+    .top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+    .title h1{margin:0;font-size:18px}
+    .title p{margin:2px 0 0;color:var(--muted);font-size:12px}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+    button,input[type="date"]{
+      background:rgba(255,255,255,.06); color:var(--text);
+      border:1px solid var(--border); border-radius:10px;
+      padding:8px 10px; font-size:13px; outline:none;
+    }
+    button{cursor:pointer}
+    button:hover{border-color:rgba(122,162,255,.45)}
+    button.primary{border-color:rgba(122,162,255,.55)}
+    button.danger{border-color:rgba(255,107,107,.55)}
+    button.ok{border-color:rgba(93,225,165,.55)}
+    .hint{color:var(--muted);font-size:12px;margin-top:10px}
+
+    main .wrap{padding-top:14px}
+    .summary{
+      background:rgba(18,27,47,.75);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:12px;
+      margin-bottom:12px;
+    }
+    .summaryTop{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+    .pill{
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      background:rgba(255,255,255,.04);
+      font-size:12px;
+      color:var(--muted);
+    }
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+    .bars{display:grid;gap:8px;margin-top:10px}
+    .barRow{display:grid;grid-template-columns:170px 1fr 60px;gap:10px;align-items:center}
+    @media (max-width:760px){.barRow{grid-template-columns:1fr;gap:6px}}
+    .barLabel{font-size:12px;color:var(--text);opacity:.95}
+    .barTrack{
+      height:10px;border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.04);
+      overflow:hidden;
+    }
+    .barFill{height:100%;width:0%;background:rgba(122,162,255,.55)}
+    .barVal{font-size:12px;color:var(--muted);text-align:right}
+
+    .grid{display:grid;gap:10px}
+    .row{
+      background:rgba(18,27,47,.75);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      display:grid;
+      grid-template-columns:90px 1.1fr 1.3fr;
+      gap:12px;
+      align-items:start;
+    }
+    @media (max-width:820px){.row{grid-template-columns:1fr}}
+    .time{display:flex;flex-direction:column;gap:8px;padding-top:2px}
+    .time .hr{font-weight:700;font-size:14px}
+    .time .badge{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+    .dot{width:8px;height:8px;border-radius:999px;background:rgba(255,255,255,.18)}
+    .dot.filled{background:var(--accent)}
+    .nowPill{
+      border:1px solid rgba(122,162,255,.55);
+      border-radius:999px;
+      padding:4px 8px;
+      width:max-content;
+      font-size:11px;
+      color:var(--text);
+      background:rgba(122,162,255,.10);
+    }
+    .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+    .quick button{
+      padding:6px 8px;
+      border-radius:999px;
+      font-size:12px;
+      background:rgba(255,255,255,.04);
+    }
+    .tags{display:flex;flex-wrap:wrap;gap:8px}
+    .tag{
+      user-select:none;
+      display:inline-flex;align-items:center;gap:8px;
+      padding:8px 10px;border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.04);
+      cursor:pointer;font-size:13px;color:var(--text);
+      transition:transform .05s ease;
+    }
+    .tag:active{transform:scale(.98)}
+    .tag input{display:none}
+    .tag.selected{
+      border-color:rgba(122,162,255,.65);
+      background:rgba(122,162,255,.14);
+    }
+    textarea{
+      width:100%; min-height:42px; resize:vertical;
+      border-radius:12px;border:1px solid var(--border);
+      background:rgba(255,255,255,.05);
+      color:var(--text);
+      padding:10px;font-size:13px;outline:none;
+    }
+    textarea:focus{border-color:rgba(122,162,255,.55)}
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="title">
+        <h1>Hourly Day Tracker</h1>
+        <p>PWA offline app. Multi-select tags + note per hour. Auto-saves on device.</p>
+      </div>
+      <div class="toolbar">
+        <input id="datePicker" type="date" />
+        <button class="primary" id="jumpNowBtn">Jump to current hour</button>
+        <button class="ok" id="copyYesterdayBtn">Copy yesterday → today</button>
+        <button id="exportBtn">Export JSON</button>
+        <button id="importBtn">Import JSON</button>
+        <button id="csvBtn">Download CSV</button>
+        <button class="danger" id="clearBtn">Clear day</button>
+      </div>
+    </div>
+    <div class="hint" id="installHint">Install tip: Chrome menu → <b>Install app</b> / <b>Add to Home screen</b>.</div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="summary" aria-label="Summary">
+      <div class="summaryTop">
+        <div class="pill">Day: <span id="dayLabel" class="mono"></span></div>
+        <div class="pill">Filled hours: <span id="filledCount" class="mono">0</span> / 24</div>
+        <div class="pill">Last saved: <span id="lastSaved" class="mono">—</span></div>
+      </div>
+      <div class="bars" id="bars"></div>
+    </section>
+
+    <div id="grid" class="grid"></div>
+  </div>
+</main>
+
+<!-- Export/Import modal -->
+<div id="modal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);padding:18px;z-index:50;">
+  <div style="width:min(900px,100%);background:rgba(18,27,47,.95);border:1px solid var(--border);border-radius:16px;padding:14px;">
+    <h2 id="modalTitle" style="margin:0 0 8px;font-size:16px;">Export</h2>
+    <p id="modalHelp" style="margin:0 0 10px;color:var(--muted);font-size:12px;">Copy/paste this JSON somewhere safe.</p>
+    <textarea id="modalText" class="mono" style="min-height:240px;"></textarea>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:10px;">
+      <button id="modalClose">Close</button>
+      <button class="primary" id="modalPrimary">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // --------- Register Service Worker (offline) ---------
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", async () => {
+      try {
+        await navigator.serviceWorker.register("./service-worker.js", { scope: "./" });
+      } catch (e) {
+        console.warn("SW registration failed", e);
+      }
+    });
+  }
+
+  // --------- Tags ----------
+  const TAGS = [
+    "Working","Idle/Break","Home task","Kid care","Driving/Commute","Exercise",
+    "Food","Learning","Meetings/Calls","Personal admin","Entertainment","Sleep/Rest"
+  ];
+
+  // --------- Elements ----------
+  const els = {
+    grid: document.getElementById("grid"),
+    bars: document.getElementById("bars"),
+    datePicker: document.getElementById("datePicker"),
+    dayLabel: document.getElementById("dayLabel"),
+    filledCount: document.getElementById("filledCount"),
+    lastSaved: document.getElementById("lastSaved"),
+    jumpNowBtn: document.getElementById("jumpNowBtn"),
+    clearBtn: document.getElementById("clearBtn"),
+    exportBtn: document.getElementById("exportBtn"),
+    importBtn: document.getElementById("importBtn"),
+    csvBtn: document.getElementById("csvBtn"),
+    copyYesterdayBtn: document.getElementById("copyYesterdayBtn"),
+    modal: document.getElementById("modal"),
+    modalTitle: document.getElementById("modalTitle"),
+    modalHelp: document.getElementById("modalHelp"),
+    modalText: document.getElementById("modalText"),
+    modalClose: document.getElementById("modalClose"),
+    modalPrimary: document.getElementById("modalPrimary"),
+    installHint: document.getElementById("installHint")
+  };
+
+  // --------- Helpers ----------
+  const pad2 = n => String(n).padStart(2, "0");
+  const isoDay = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  const keyForDay = dayStr => `hourlyTracker:${dayStr}`;
+  const makeEmptyDay = () => Array.from({length:24}, () => ({ tags: [], note: "" }));
+
+  function loadDay(dayStr){
+    const raw = localStorage.getItem(keyForDay(dayStr));
+    if(!raw) return makeEmptyDay();
+    try{
+      const parsed = JSON.parse(raw);
+      if(!Array.isArray(parsed) || parsed.length !== 24) return makeEmptyDay();
+      return parsed.map(h => ({
+        tags: Array.isArray(h?.tags) ? h.tags.filter(t => typeof t === "string") : [],
+        note: typeof h?.note === "string" ? h.note : ""
+      }));
+    } catch { return makeEmptyDay(); }
+  }
+
+  function saveDay(dayStr, data){
+    localStorage.setItem(keyForDay(dayStr), JSON.stringify(data));
+    els.lastSaved.textContent = new Date().toLocaleString();
+  }
+
+  const hourLabel = h => `${pad2(h)}:00–${pad2((h+1)%24)}:00`;
+
+  function computeFilled(data){
+    let c = 0;
+    for(const h of data){
+      if((h.tags?.length) || (h.note?.trim().length)) c++;
+    }
+    return c;
+  }
+
+  // --------- Summary ----------
+  function computeTagCounts(data){
+    const counts = new Map(TAGS.map(t => [t, 0]));
+    for(const hour of data){
+      for(const t of (hour.tags || [])){
+        if(counts.has(t)) counts.set(t, counts.get(t) + 1);
+      }
+    }
+    return counts;
+  }
+
+  function renderSummary(dayStr, data){
+    els.dayLabel.textContent = dayStr;
+    els.filledCount.textContent = String(computeFilled(data));
+
+    const counts = computeTagCounts(data);
+    const max = Math.max(1, ...counts.values());
+    const sorted = [...counts.entries()].sort((a,b) => b[1] - a[1]);
+
+    els.bars.innerHTML = "";
+    for(const [tag, n] of sorted){
+      const row = document.createElement("div");
+      row.className = "barRow";
+
+      const label = document.createElement("div");
+      label.className = "barLabel";
+      label.textContent = tag;
+
+      const track = document.createElement("div");
+      track.className = "barTrack";
+
+      const fill = document.createElement("div");
+      fill.className = "barFill";
+      fill.style.width = `${Math.round((n / max) * 100)}%`;
+      track.appendChild(fill);
+
+      const val = document.createElement("div");
+      val.className = "barVal mono";
+      val.textContent = `${n}h`;
+
+      row.appendChild(label);
+      row.appendChild(track);
+      row.appendChild(val);
+      els.bars.appendChild(row);
+    }
+  }
+
+  // --------- Main render ----------
+  function render(dayStr, data){
+    renderSummary(dayStr, data);
+    els.grid.innerHTML = "";
+
+    const now = new Date();
+    const isToday = isoDay(now) === dayStr;
+    const currentHour = now.getHours();
+
+    for(let h=0; h<24; h++){
+      const row = document.createElement("div");
+      row.className = "row";
+      row.id = `hour-${h}`;
+
+      const time = document.createElement("div");
+      time.className = "time";
+
+      if(isToday && h === currentHour){
+        const nowPill = document.createElement("div");
+        nowPill.className = "nowPill";
+        nowPill.textContent = "NOW";
+        time.appendChild(nowPill);
+      }
+
+      const hr = document.createElement("div");
+      hr.className = "hr";
+      hr.textContent = hourLabel(h);
+
+      const badge = document.createElement("div");
+      badge.className = "badge";
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      const badgeText = document.createElement("span");
+
+      const filled = (data[h].tags.length > 0) || (data[h].note.trim().length > 0);
+      dot.classList.toggle("filled", filled);
+      badgeText.textContent = filled ? "Logged" : "Empty";
+
+      badge.appendChild(dot);
+      badge.appendChild(badgeText);
+
+      // Quick actions
+      const quick = document.createElement("div");
+      quick.className = "quick";
+
+      const prevBtn = document.createElement("button");
+      prevBtn.textContent = "Prev hour →";
+      prevBtn.disabled = (h === 0);
+      prevBtn.addEventListener("click", () => {
+        if(h === 0) return;
+        data[h] = JSON.parse(JSON.stringify(data[h-1]));
+        saveAndRerender(dayStr, data, h);
+      });
+
+      const prevTagsBtn = document.createElement("button");
+      prevTagsBtn.textContent = "Prev tags";
+      prevTagsBtn.disabled = (h === 0);
+      prevTagsBtn.addEventListener("click", () => {
+        if(h === 0) return;
+        data[h].tags = [...new Set(data[h-1].tags)];
+        saveAndRerender(dayStr, data, h);
+      });
+
+      const clearHourBtn = document.createElement("button");
+      clearHourBtn.textContent = "Clear";
+      clearHourBtn.addEventListener("click", () => {
+        data[h] = { tags: [], note: "" };
+        saveAndRerender(dayStr, data, h);
+      });
+
+      const nextBtn = document.createElement("button");
+      nextBtn.textContent = "→ Next";
+      nextBtn.disabled = (h === 23);
+      nextBtn.addEventListener("click", () => {
+        if(h === 23) return;
+        data[h+1] = JSON.parse(JSON.stringify(data[h]));
+        saveAndRerender(dayStr, data, h+1);
+        document.getElementById(`hour-${h+1}`)?.scrollIntoView({behavior:"smooth", block:"start"});
+      });
+
+      quick.appendChild(prevBtn);
+      quick.appendChild(prevTagsBtn);
+      quick.appendChild(clearHourBtn);
+      quick.appendChild(nextBtn);
+
+      time.appendChild(hr);
+      time.appendChild(badge);
+      time.appendChild(quick);
+
+      // Tags
+      const tagsWrap = document.createElement("div");
+      tagsWrap.className = "tags";
+
+      TAGS.forEach(tagName => {
+        const btn = document.createElement("label");
+        btn.className = "tag";
+
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = data[h].tags.includes(tagName);
+        btn.classList.toggle("selected", input.checked);
+
+        input.addEventListener("change", () => {
+          const set = new Set(data[h].tags);
+          if(input.checked) set.add(tagName); else set.delete(tagName);
+          data[h].tags = [...set];
+          btn.classList.toggle("selected", input.checked);
+          saveAndRefreshBadge(dayStr, data, h, dot, badgeText);
+        });
+
+        const span = document.createElement("span");
+        span.textContent = tagName;
+
+        btn.appendChild(input);
+        btn.appendChild(span);
+        tagsWrap.appendChild(btn);
+      });
+
+      // Note
+      const note = document.createElement("div");
+      const ta = document.createElement("textarea");
+      ta.placeholder = "Comment for this hour… (optional)";
+      ta.value = data[h].note;
+
+      let noteTimer = null;
+      ta.addEventListener("input", () => {
+        data[h].note = ta.value;
+        clearTimeout(noteTimer);
+        noteTimer = setTimeout(() => {
+          saveAndRefreshBadge(dayStr, data, h, dot, badgeText);
+        }, 250);
+      });
+
+      note.appendChild(ta);
+
+      row.appendChild(time);
+      row.appendChild(tagsWrap);
+      row.appendChild(note);
+      els.grid.appendChild(row);
+    }
+  }
+
+  function saveAndRefreshBadge(dayStr, data, h, dotEl, badgeTextEl){
+    const filled = (data[h].tags.length > 0) || (data[h].note.trim().length > 0);
+    dotEl.classList.toggle("filled", filled);
+    badgeTextEl.textContent = filled ? "Logged" : "Empty";
+    saveDay(dayStr, data);
+    renderSummary(dayStr, data);
+  }
+
+  function saveAndRerender(dayStr, data, focusHour){
+    saveDay(dayStr, data);
+    render(dayStr, data);
+    document.getElementById(`hour-${focusHour}`)?.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  // --------- Modal ----------
+  function openModal({title, help, text, primaryLabel, onPrimary}){
+    els.modalTitle.textContent = title;
+    els.modalHelp.textContent = help;
+    els.modalText.value = text || "";
+    els.modalPrimary.textContent = primaryLabel || "OK";
+    els.modalPrimary.onclick = onPrimary;
+    els.modal.style.display = "flex";
+    setTimeout(() => els.modalText.focus(), 0);
+  }
+  function closeModal(){
+    els.modal.style.display = "none";
+    els.modalPrimary.onclick = null;
+  }
+  els.modalClose.addEventListener("click", closeModal);
+  els.modal.addEventListener("click", (e) => { if(e.target === els.modal) closeModal(); });
+
+  // --------- Export/Import/CSV ----------
+  function downloadText(filename, text, mime="text/plain"){
+    const blob = new Blob([text], {type:mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+  const csvEscape = (v) => {
+    const s = String(v ?? "");
+    if(/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+    return s;
+  };
+  function toCSV(dayStr, data){
+    const lines = [];
+    lines.push(["day","hour","start","end","tags","note"].map(csvEscape).join(","));
+    for(let h=0; h<24; h++){
+      const start = `${pad2(h)}:00`;
+      const end = `${pad2((h+1)%24)}:00`;
+      lines.push([dayStr, String(h), start, end, data[h].tags.join(" | "), data[h].note || ""].map(csvEscape).join(","));
+    }
+    return lines.join("\n");
+  }
+
+  // --------- App state ----------
+  let currentDay = isoDay(new Date());
+  let currentData = loadDay(currentDay);
+
+  function setDay(dayStr){
+    currentDay = dayStr;
+    currentData = loadDay(currentDay);
+    render(currentDay, currentData);
+  }
+
+  // --------- Install hint (optional) ----------
+  // Some browsers hide install UI; this just keeps the tip visible.
+  // If you want a custom "Install" button later, tell me and I’ll add it.
+
+  // --------- Wire header buttons ----------
+  els.datePicker.value = currentDay;
+  els.datePicker.addEventListener("change", () => {
+    const v = els.datePicker.value;
+    if(v) setDay(v);
+  });
+
+  els.jumpNowBtn.addEventListener("click", () => {
+    const now = new Date();
+    const dayStr = isoDay(now);
+    if(currentDay !== dayStr){
+      els.datePicker.value = dayStr;
+      setDay(dayStr);
+    }
+    document.getElementById(`hour-${now.getHours()}`)?.scrollIntoView({behavior:"smooth", block:"start"});
+  });
+
+  els.clearBtn.addEventListener("click", () => {
+    if(!confirm(`Clear all entries for ${currentDay}?`)) return;
+    currentData = makeEmptyDay();
+    saveDay(currentDay, currentData);
+    render(currentDay, currentData);
+  });
+
+  els.copyYesterdayBtn.addEventListener("click", () => {
+    const d = new Date(currentDay + "T00:00:00");
+    d.setDate(d.getDate()-1);
+    const y = isoDay(d);
+    const yData = loadDay(y);
+    if(!confirm(`Copy all 24 hours from ${y} into ${currentDay}? This will overwrite today's data.`)) return;
+    currentData = JSON.parse(JSON.stringify(yData));
+    saveDay(currentDay, currentData);
+    render(currentDay, currentData);
+  });
+
+  els.exportBtn.addEventListener("click", async () => {
+    const payload = { version: 1, day: currentDay, tagsCatalog: TAGS, data: currentData };
+    const json = JSON.stringify(payload, null, 2);
+    openModal({
+      title: "Export JSON",
+      help: "Copy/paste this JSON somewhere safe (backup).",
+      text: json,
+      primaryLabel: "Copy to clipboard",
+      onPrimary: async () => {
+        try { await navigator.clipboard.writeText(json); alert("Copied!"); }
+        catch { alert("Copy failed. You can still manually copy from the box."); }
+      }
+    });
+  });
+
+  els.importBtn.addEventListener("click", () => {
+    openModal({
+      title: "Import JSON",
+      help: "Paste exported JSON. It will import into the day inside the JSON and switch to it.",
+      text: "",
+      primaryLabel: "Import",
+      onPrimary: () => {
+        const txt = els.modalText.value.trim();
+        if(!txt) return alert("Paste JSON first.");
+        try{
+          const payload = JSON.parse(txt);
+          if(!payload || payload.version !== 1 || !payload.day || !Array.isArray(payload.data) || payload.data.length !== 24){
+            return alert("Invalid JSON format.");
+          }
+          const normalized = payload.data.map(h => ({
+            tags: Array.isArray(h?.tags) ? h.tags.filter(t => typeof t === "string") : [],
+            note: typeof h?.note === "string" ? h.note : ""
+          }));
+          localStorage.setItem(keyForDay(payload.day), JSON.stringify(normalized));
+          closeModal();
+          els.datePicker.value = payload.day;
+          setDay(payload.day);
+          alert("Imported!");
+        } catch {
+          alert("Failed to parse JSON.");
+        }
+      }
+    });
+  });
+
+  els.csvBtn.addEventListener("click", () => {
+    downloadText(`hourly-tracker-${currentDay}.csv`, toCSV(currentDay, currentData), "text/csv");
+  });
+
+  // --------- Initial render ----------
+  render(currentDay, currentData);
+})();
+</script>
+</body>
+</html>
